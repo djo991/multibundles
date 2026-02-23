@@ -2,9 +2,18 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ─── Database ─────────────────────────────────────────────────────────────────
+// Development (default): SQLite — no setup needed.
+// Production (Supabase): Switch provider to "postgresql" and set DATABASE_URL
+//   to the pooled Supabase connection string. Set DIRECT_URL for migrations.
+//
+// To switch to PostgreSQL for production:
+//   1. Change provider below to "postgresql"
+//   2. Add directUrl = env("DIRECT_URL")
+//   3. Run: npx prisma migrate deploy
 datasource db {
   provider = "sqlite"
-  url      = "file:dev.sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ─── Session (Shopify Auth) ───────────────────────────────────

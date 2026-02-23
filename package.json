@@ -17,7 +17,11 @@
     "prisma": "prisma",
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
-    "typecheck": "react-router typegen && tsc --noEmit"
+    "typecheck": "react-router typegen && tsc --noEmit",
+    "seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "type": "module",
   "engines": {
@@ -57,6 +61,7 @@
     "eslint-plugin-react-hooks": "^4.6.2",
     "graphql-config": "^5.1.1",
     "prettier": "^3.6.2",
+    "tsx": "^4.19.3",
     "typescript": "^5.9.3",
     "vite": "^6.3.6"
   },

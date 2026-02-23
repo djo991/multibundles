@@ -1,14 +1,106 @@
-# Shopify App Template - React Router
+# MultiBundles — Shopify Bundler App
 
-This is a template for building a [Shopify app](https://shopify.dev/docs/apps/getting-started) using [React Router](https://reactrouter.com/). It was forked from the [Shopify Remix app template](https://github.com/Shopify/shopify-app-template-remix) and converted to React Router.
+**MultiBundles** is a Shopify app for mid-market and enterprise merchants who need advanced bundle management beyond Shopify's native bundles. It supports four bundle types, Rust-powered Cart Transform / Discount Functions, automatic inventory sync, multi-market pricing, and a full storefront theme extension.
 
-Rather than cloning this repo, follow the [Quick Start steps](https://github.com/Shopify/shopify-app-template-react-router#quick-start).
+## Bundle Types
 
-Visit the [`shopify.dev` documentation](https://shopify.dev/docs/api/shopify-app-react-router) for more details on the React Router app package.
+| Type | Description | Shopify Function |
+|------|-------------|-----------------|
+| **Fixed** | Pre-defined products + quantities, auto-expands at checkout | Cart Transform (linesExpand) |
+| **Mix & Match** | Customer picks N from a curated pool | Cart Transform (linesExpand) |
+| **Volume / Tiered** | Buy more, save more on the same product | Discount Function |
+| **Custom** | Fixed components + customer-selected items | Cart Transform (linesExpand) |
 
-## Upgrading from Remix
+## Pricing Plans
 
-If you have an existing Remix app that you want to upgrade to React Router, please follow the [upgrade guide](https://github.com/Shopify/shopify-app-template-react-router/wiki/Upgrading-from-Remix). Otherwise, please follow the quick start guide below.
+| Plan | Price | Limits |
+|------|-------|--------|
+| Free | $0 | 3 bundles, fixed type only |
+| Launch | $9.99/mo | Unlimited bundles, fixed + mix-match + volume, cart upsell |
+| Global | $29.99/mo | All types incl. custom, multi-market pricing with rounding |
+
+## Tech Stack
+
+- **Framework**: React Router v7 (Shopify App Template)
+- **Admin UI**: Polaris Web Components
+- **Database**: Prisma ORM (SQLite dev → Supabase PostgreSQL prod)
+- **Shopify Functions**: 2× Rust/Wasm extensions (Cart Transform + Discount)
+- **Storefront**: Theme App Extension (4 Liquid blocks + JS/CSS assets)
+
+## Quick Start
+
+### Prerequisites
+
+- [Shopify CLI](https://shopify.dev/docs/apps/tools/cli/getting-started)
+- [Rust + wasm32-wasip1 target](https://www.rust-lang.org/tools/install) (for building functions)
+- Node.js >= 20.19
+
+### Setup
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your Shopify API credentials
+
+# 3. Set up the database
+npx prisma migrate deploy
+
+# 4. (Optional) Seed development data
+npm run seed
+
+# 5. Start the development server
+shopify app dev
+```
+
+Press **P** to open the app in your development store.
+
+### Running Function Tests
+
+```bash
+# Test Cart Transform (all bundle types)
+cd extensions/cart-transform
+shopify app function run --input src/test_fixed.json
+shopify app function run --input src/test_mix_match.json
+shopify app function run --input src/test_custom.json
+shopify app function run --input src/test_mixed_cart.json
+
+# Test Volume Discount
+cd extensions/volume-discount
+shopify app function run --input src/test_volume_qty3.json
+```
+
+See [LAUNCH.md](./LAUNCH.md) for the full QA checklist and deployment guide.
+
+## Project Structure
+
+```
+multibundles/
+├── app/
+│   ├── routes/           # React Router file-based routes
+│   ├── components/       # Shared UI components (UpgradeBanner, PlanBadge)
+│   ├── models/           # Prisma data access layer
+│   ├── services/         # Business logic (pricing, inventory, metafield sync)
+│   └── graphql/          # GraphQL queries/mutations
+├── extensions/
+│   ├── cart-transform/   # Rust Cart Transform function (fixed/mix-match/custom)
+│   ├── volume-discount/  # Rust Discount Function (volume/tiered)
+│   └── theme-app-extension/  # Liquid blocks + JS/CSS assets
+├── prisma/
+│   ├── schema.prisma
+│   └── seed.ts
+├── .env.example
+├── LAUNCH.md             # QA checklist + production deployment guide
+└── shopify.app.toml
+```
+
+---
+
+*Original template documentation follows.*
+
+---
 
 ## Quick start
 

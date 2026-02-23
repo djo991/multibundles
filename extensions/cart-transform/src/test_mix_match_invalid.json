@@ -1,0 +1,29 @@
+{
+  "presentmentCurrencyRate": "1.0",
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/99",
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/parent-mm-1",
+          "title": "Default Title",
+          "product": {
+            "bundleConfig": {
+              "jsonValue": "{\"type\":\"mix_and_match\",\"minSelections\":3,\"maxSelections\":3,\"pool\":[{\"variantId\":\"gid://shopify/ProductVariant/pool-a\",\"price\":\"5.00\"},{\"variantId\":\"gid://shopify/ProductVariant/pool-b\",\"price\":\"5.00\"},{\"variantId\":\"gid://shopify/ProductVariant/pool-c\",\"price\":\"5.00\"}],\"bundlePrice\":\"12.00\"}"
+            }
+          }
+        },
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "12.00"
+          }
+        },
+        "attribute": {
+          "value": "[{\"id\":\"gid://shopify/ProductVariant/pool-a\",\"qty\":1},{\"id\":\"gid://shopify/ProductVariant/UNKNOWN-VARIANT\",\"qty\":2}]"
+        }
+      }
+    ]
+  }
+}

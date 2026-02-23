@@ -1,0 +1,67 @@
+{
+  "presentmentCurrencyRate": "1.0",
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/1",
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/fixed-parent-1",
+          "title": "Default Title",
+          "product": {
+            "bundleConfig": {
+              "jsonValue": "{\"type\":\"fixed\",\"components\":[{\"variantId\":\"gid://shopify/ProductVariant/fixed-comp-a\",\"quantity\":1,\"price\":\"20.00\"},{\"variantId\":\"gid://shopify/ProductVariant/fixed-comp-b\",\"quantity\":1,\"price\":\"10.00\"}]}"
+            }
+          }
+        },
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "25.00"
+          }
+        },
+        "attribute": null
+      },
+      {
+        "id": "gid://shopify/CartLine/2",
+        "quantity": 2,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/regular-product-1",
+          "title": "Blue / Large",
+          "product": {
+            "bundleConfig": null
+          }
+        },
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "19.99"
+          }
+        },
+        "attribute": null
+      },
+      {
+        "id": "gid://shopify/CartLine/3",
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/mm-parent-1",
+          "title": "Default Title",
+          "product": {
+            "bundleConfig": {
+              "jsonValue": "{\"type\":\"mix_and_match\",\"minSelections\":2,\"maxSelections\":2,\"pool\":[{\"variantId\":\"gid://shopify/ProductVariant/pool-x\",\"price\":\"8.00\"},{\"variantId\":\"gid://shopify/ProductVariant/pool-y\",\"price\":\"8.00\"},{\"variantId\":\"gid://shopify/ProductVariant/pool-z\",\"price\":\"8.00\"}],\"bundlePrice\":\"14.00\"}"
+            }
+          }
+        },
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "14.00"
+          }
+        },
+        "attribute": {
+          "value": "[{\"id\":\"gid://shopify/ProductVariant/pool-x\",\"qty\":1},{\"id\":\"gid://shopify/ProductVariant/pool-z\",\"qty\":1}]"
+        }
+      }
+    ]
+  }
+}
