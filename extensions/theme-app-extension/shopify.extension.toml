@@ -1,0 +1,14 @@
+api_version = "2025-10"
+
+[[extensions]]
+type = "theme"
+name = "MultiBundles Theme Extension"
+handle = "multibundles-theme"
+
+  [extensions.settings]
+  [[extensions.settings.attributes]]
+  type = "text"
+  key = "app_name"
+  [extensions.settings.attributes.label]
+  en = "App Name"
+  default = "MultiBundles"

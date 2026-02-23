@@ -1,0 +1,176 @@
+{% comment %}
+  MultiBundles - Bundle Builder Block
+  -------------------------------------
+  Interactive widget for Mix & Match and Custom bundles.
+  Customers select items from the pool and add the bundle to cart.
+
+  The selections are encoded as JSON in the cart line item property
+  "_multibundles_selections" on the parent product variant.
+
+  Usage: Add this App Block to the product page template for bundle products.
+  Compatible with: Mix & Match bundles, Custom bundles.
+{% endcomment %}
+
+{%- liquid
+  assign bundle_config_raw = product.metafields["$app:multibundles"]["bundle-config"].value
+  assign bundle_config = bundle_config_raw | parse_json
+  assign bundle_type = bundle_config.type
+-%}
+
+{%- unless bundle_config and bundle_type == "mix_and_match" or bundle_type == "custom" -%}
+  {%- break -%}
+{%- endunless -%}
+
+{%- if bundle_type == "mix_and_match" -%}
+  {%- assign pool = bundle_config.pool -%}
+  {%- assign min_sel = bundle_config.minSelections | plus: 0 -%}
+  {%- assign max_sel = bundle_config.maxSelections | plus: 0 -%}
+  {%- assign bundle_price = bundle_config.bundlePrice -%}
+{%- else -%}
+  {%- assign pool = bundle_config.selectablePool.pool -%}
+  {%- assign min_sel = bundle_config.selectablePool.minSelections | plus: 0 -%}
+  {%- assign max_sel = bundle_config.selectablePool.maxSelections | plus: 0 -%}
+  {%- assign bundle_price = bundle_config.bundlePrice -%}
+{%- endif -%}
+
+<div
+  class="multibundles-builder"
+  data-bundle-type="{{ bundle_type }}"
+  data-min-selections="{{ min_sel }}"
+  data-max-selections="{{ max_sel }}"
+  data-bundle-price="{{ bundle_price }}"
+  data-product-id="{{ product.id }}"
+  data-variant-id="{{ product.selected_or_first_available_variant.id }}"
+>
+  {% if bundle_type == "custom" and bundle_config.fixedComponents.size > 0 %}
+    <div class="multibundles-builder__fixed">
+      <h3 class="multibundles-builder__section-title">{{ block.settings.fixed_label | default: "Always included" }}</h3>
+      <div class="multibundles-builder__fixed-items">
+        {% for comp in bundle_config.fixedComponents %}
+          <div class="multibundles-builder__fixed-item">
+            <span class="multibundles-builder__fixed-qty">×{{ comp.quantity }}</span>
+            <span class="multibundles-builder__fixed-variant-id" data-variant-id="{{ comp.variantId }}" style="display:none"></span>
+            <span class="multibundles-builder__fixed-name">Loading...</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="multibundles-builder__selection">
+    <h3 class="multibundles-builder__section-title">
+      {{ block.settings.selection_label | default: "Choose your items" }}
+      <span class="multibundles-builder__counter">
+        (<span class="multibundles-builder__selected-count">0</span>/{{ max_sel }})
+      </span>
+    </h3>
+
+    <div class="multibundles-builder__pool">
+      {% for item in pool %}
+        <div
+          class="multibundles-builder__pool-item"
+          data-variant-id="{{ item.variantId }}"
+          data-price="{{ item.price }}"
+          role="checkbox"
+          aria-checked="false"
+          tabindex="0"
+        >
+          <div class="multibundles-builder__pool-item-inner">
+            <div class="multibundles-builder__pool-check">
+              <span class="multibundles-builder__check-icon">✓</span>
+            </div>
+            <div class="multibundles-builder__pool-item-image" data-variant-id="{{ item.variantId }}">
+              {%- comment -%}Image loaded via JS from Shopify product data{%- endcomment -%}
+            </div>
+            <div class="multibundles-builder__pool-item-info">
+              <p class="multibundles-builder__pool-item-name" data-variant-id="{{ item.variantId }}">Loading...</p>
+              {% if block.settings.show_prices %}
+                <p class="multibundles-builder__pool-item-price">${{ item.price }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="multibundles-builder__summary">
+    <div class="multibundles-builder__summary-info">
+      <span class="multibundles-builder__selection-status">
+        Select {{ min_sel }}
+        {%- if max_sel != min_sel %} – {{ max_sel }}{% endif %} items
+      </span>
+      {% if bundle_price %}
+        <span class="multibundles-builder__bundle-price">
+          {{ block.settings.price_label | default: "Bundle price:" }}
+          <strong>
+            {{ cart.currency.symbol }}{{ bundle_price }}
+          </strong>
+        </span>
+      {% endif %}
+    </div>
+
+    <button
+      class="multibundles-builder__add-to-cart btn button"
+      disabled
+      data-adding="{{ block.settings.adding_label | default: 'Adding...' }}"
+    >
+      {{ block.settings.add_to_cart_label | default: "Add bundle to cart" }}
+    </button>
+
+    <div class="multibundles-builder__error" role="alert" style="display:none"></div>
+  </div>
+</div>
+
+<script src="{{ 'bundle-builder.js' | asset_url }}" defer></script>
+<link rel="stylesheet" href="{{ 'bundle-builder.css' | asset_url }}">
+
+{% schema %}
+{
+  "name": "Bundle Builder",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "fixed_label",
+      "label": "Fixed items heading",
+      "default": "Always included"
+    },
+    {
+      "type": "text",
+      "id": "selection_label",
+      "label": "Selection heading",
+      "default": "Choose your items"
+    },
+    {
+      "type": "text",
+      "id": "add_to_cart_label",
+      "label": "Add to cart button label",
+      "default": "Add bundle to cart"
+    },
+    {
+      "type": "text",
+      "id": "adding_label",
+      "label": "Adding to cart label",
+      "default": "Adding..."
+    },
+    {
+      "type": "text",
+      "id": "price_label",
+      "label": "Price label",
+      "default": "Bundle price:"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_prices",
+      "label": "Show individual item prices",
+      "default": false
+    }
+  ],
+  "presets": [
+    {
+      "name": "Bundle Builder"
+    }
+  ]
+}
+{% endschema %}

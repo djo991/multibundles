@@ -1,0 +1,24 @@
+{
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/1",
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/vol-1",
+          "product": {
+            "volumeConfig": {
+              "jsonValue": "{\"type\":\"volume\",\"tiers\":[{\"minQuantity\":2,\"discountType\":\"percentage\",\"discountValue\":10},{\"minQuantity\":3,\"discountType\":\"percentage\",\"discountValue\":15}]}"
+            }
+          }
+        },
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "50.00"
+          }
+        }
+      }
+    ]
+  }
+}

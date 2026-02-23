@@ -2,11 +2,13 @@ import { useState, useCallback } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useSubmit } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
+import { redirect } from "react-router";
 import { authenticate } from "~/shopify.server";
 import { getOrCreateShop } from "~/models/shop.server";
-import { createBundle, getBundle } from "~/models/bundle.server";
+import { createBundle, getBundleCount, getBundle } from "~/models/bundle.server";
 import { setVolumeTiers } from "~/models/volume-tier.server";
 import { syncBundleMetafield } from "~/services/metafield-sync.server";
+import { canCreateBundle } from "~/services/plan-gating.server";
 
 interface TierEntry {
   minQuantity: number;
@@ -17,12 +19,24 @@ interface TierEntry {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = await getOrCreateShop(session.shop);
-  return { shopId: shop.id };
+  const bundleCount = await getBundleCount(shop.id);
+  const check = canCreateBundle(shop.activePlan, "volume", bundleCount);
+  if (!check.allowed) {
+    throw redirect("/app/bundles/new");
+  }
+  return { shopId: shop.id, plan: shop.activePlan };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = await getOrCreateShop(session.shop);
+
+  const bundleCount = await getBundleCount(shop.id);
+  const check = canCreateBundle(shop.activePlan, "volume", bundleCount);
+  if (!check.allowed) {
+    return { error: check.reason };
+  }
+
   const formData = await request.formData();
   const data = JSON.parse(formData.get("data") as string);
 

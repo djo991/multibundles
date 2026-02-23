@@ -33,3 +33,37 @@ export async function getMarketOverrides(bundleId: string) {
     where: { bundleId },
   });
 }
+
+export async function upsertMarketOverride(
+  bundleId: string,
+  override: MarketOverrideInput,
+) {
+  return prisma.marketPriceOverride.upsert({
+    where: {
+      bundleId_marketGid: {
+        bundleId,
+        marketGid: override.marketGid,
+      },
+    },
+    update: {
+      marketName: override.marketName,
+      currencyCode: override.currencyCode,
+      fixedPrice: override.fixedPrice,
+      roundingRule: override.roundingRule ?? null,
+    },
+    create: {
+      bundleId,
+      marketGid: override.marketGid,
+      marketName: override.marketName,
+      currencyCode: override.currencyCode,
+      fixedPrice: override.fixedPrice,
+      roundingRule: override.roundingRule ?? null,
+    },
+  });
+}
+
+export async function deleteMarketOverride(bundleId: string, marketGid: string) {
+  return prisma.marketPriceOverride.deleteMany({
+    where: { bundleId, marketGid },
+  });
+}

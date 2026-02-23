@@ -2,7 +2,9 @@ import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate, useSearchParams } from "react-router";
 import { authenticate } from "~/shopify.server";
 import { getOrCreateShop } from "~/models/shop.server";
-import { getBundles } from "~/models/bundle.server";
+import { getBundles, getBundleCount } from "~/models/bundle.server";
+import { getPlanLimits } from "~/services/plan-gating.server";
+import { UpgradeBanner } from "~/components/UpgradeBanner";
 
 const BUNDLE_TYPE_LABELS: Record<string, string> = {
   fixed: "Fixed",
@@ -24,13 +26,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const status = url.searchParams.get("status") || undefined;
   const bundleType = url.searchParams.get("type") || undefined;
 
-  const bundles = await getBundles(shop.id, { status, bundleType });
+  const [bundles, bundleCount] = await Promise.all([
+    getBundles(shop.id, { status, bundleType }),
+    getBundleCount(shop.id),
+  ]);
 
-  return { bundles, shopPlan: shop.activePlan };
+  const limits = getPlanLimits(shop.activePlan);
+  const atLimit =
+    limits.maxBundles !== Infinity && bundleCount >= limits.maxBundles;
+
+  return {
+    bundles,
+    shopPlan: shop.activePlan,
+    bundleCount,
+    maxBundles: limits.maxBundles,
+    atLimit,
+  };
 };
 
 export default function BundleList() {
-  const { bundles, shopPlan } = useLoaderData<typeof loader>();
+  const { bundles, shopPlan, bundleCount, maxBundles, atLimit } =
+    useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -65,6 +81,15 @@ export default function BundleList() {
       <s-button slot="primary-action" href="/app/bundles/new" variant="primary">
         Create bundle
       </s-button>
+
+      {atLimit && (
+        <UpgradeBanner
+          feature={`You've reached your ${maxBundles}-bundle limit`}
+          requiredPlan="Launch"
+          planPrice="$9.99"
+          description="Upgrade to the Launch plan for unlimited bundles and more bundle types."
+        />
+      )}
 
       <s-card>
         <s-stack direction="block" gap="base">

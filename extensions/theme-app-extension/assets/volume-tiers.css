@@ -1,0 +1,64 @@
+/* MultiBundles - Volume Tiers Styles */
+
+.multibundles-volume-tiers {
+  margin: 1.5rem 0;
+}
+
+.multibundles-volume-tiers__heading {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.multibundles-volume-tiers__table {
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.multibundles-volume-tiers__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  transition: background 0.1s;
+}
+
+.multibundles-volume-tiers__row:last-child {
+  border-bottom: none;
+}
+
+.multibundles-volume-tiers__row--header {
+  background: var(--color-background-secondary, #f9fafb);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--color-foreground-secondary, #6b7280);
+}
+
+.multibundles-volume-tiers__row--active {
+  background: var(--color-success-light, #ecfdf5);
+  font-weight: 600;
+}
+
+.multibundles-volume-tiers__cell {
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.multibundles-volume-tiers__discount {
+  color: var(--color-success, #059669);
+  font-weight: 500;
+}
+
+.multibundles-volume-tiers__price {
+  font-weight: 500;
+}
+
+.multibundles-volume-tiers__savings-message {
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--color-accent-light, #eff6ff);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--color-accent, #2563eb);
+  font-weight: 500;
+}

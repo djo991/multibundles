@@ -1,0 +1,124 @@
+{% comment %}
+  MultiBundles - Volume Tiers Block
+  -----------------------------------
+  Displays quantity discount tiers on the product page.
+  Reads volume-config metafield from the product.
+  Optionally shows dynamic messaging based on the current cart quantity.
+
+  Usage: Add this App Block to the product page template for volume-discounted products.
+  Compatible with: Volume / Tiered bundles.
+{% endcomment %}
+
+{%- liquid
+  assign volume_config_raw = product.metafields["$app:multibundles"]["volume-config"].value
+  assign volume_config = volume_config_raw | parse_json
+  assign tiers = volume_config.tiers
+-%}
+
+{%- unless volume_config and tiers.size > 0 -%}
+  {%- break -%}
+{%- endunless -%}
+
+<div
+  class="multibundles-volume-tiers"
+  data-product-id="{{ product.id }}"
+  data-variant-id="{{ product.selected_or_first_available_variant.id }}"
+>
+  <div class="multibundles-volume-tiers__header">
+    <h3 class="multibundles-volume-tiers__heading">{{ block.settings.heading | default: "Volume discounts" }}</h3>
+  </div>
+
+  <div class="multibundles-volume-tiers__table">
+    <div class="multibundles-volume-tiers__row multibundles-volume-tiers__row--header">
+      <span class="multibundles-volume-tiers__cell">Quantity</span>
+      <span class="multibundles-volume-tiers__cell">Discount</span>
+      <span class="multibundles-volume-tiers__cell">Price each</span>
+    </div>
+
+    {% assign base_price = product.selected_or_first_available_variant.price | divided_by: 100.0 %}
+    {% assign sorted_tiers = tiers | sort: "minQuantity" %}
+
+    <div
+      class="multibundles-volume-tiers__row{% if false %} multibundles-volume-tiers__row--active{% endif %}"
+      data-min-qty="1"
+      data-max-qty="{{ sorted_tiers.first.minQuantity | minus: 1 }}"
+    >
+      <span class="multibundles-volume-tiers__cell">
+        1
+        {%- if sorted_tiers.first.minQuantity > 2 -%}–{{ sorted_tiers.first.minQuantity | minus: 1 }}{%- endif -%}
+      </span>
+      <span class="multibundles-volume-tiers__cell">Full price</span>
+      <span class="multibundles-volume-tiers__cell multibundles-volume-tiers__price">
+        {{ product.selected_or_first_available_variant.price | money }}
+      </span>
+    </div>
+
+    {% for tier in sorted_tiers %}
+      {%- assign next_tier = sorted_tiers[forloop.index] -%}
+      {%- if tier.discountType == "percentage" -%}
+        {%- assign discount_label = tier.discountValue | append: "% off" -%}
+        {%- assign discount_multiplier = 100 | minus: tier.discountValue | divided_by: 100.0 -%}
+        {%- assign discounted_price = base_price | times: discount_multiplier -%}
+      {%- else -%}
+        {%- assign discount_label = "$" | append: tier.discountValue | append: " off each" -%}
+        {%- assign discounted_price = base_price | minus: tier.discountValue -%}
+      {%- endif -%}
+      <div
+        class="multibundles-volume-tiers__row"
+        data-min-qty="{{ tier.minQuantity }}"
+        data-max-qty="{{ next_tier.minQuantity | minus: 1 | default: 9999 }}"
+        data-discount-type="{{ tier.discountType }}"
+        data-discount-value="{{ tier.discountValue }}"
+      >
+        <span class="multibundles-volume-tiers__cell">
+          {{ tier.minQuantity }}
+          {%- if next_tier -%}–{{ next_tier.minQuantity | minus: 1 }}{%- else -%}+{%- endif -%}
+        </span>
+        <span class="multibundles-volume-tiers__cell multibundles-volume-tiers__discount">
+          {{ discount_label }}
+        </span>
+        <span class="multibundles-volume-tiers__cell multibundles-volume-tiers__price">
+          {%- assign discounted_cents = discounted_price | times: 100 | round -%}
+          {{ discounted_cents | money }}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if block.settings.show_savings_message %}
+    <div
+      class="multibundles-volume-tiers__savings-message"
+      data-base-price="{{ product.selected_or_first_available_variant.price }}"
+      style="display:none"
+    ></div>
+  {% endif %}
+</div>
+
+<link rel="stylesheet" href="{{ 'volume-tiers.css' | asset_url }}">
+
+{% schema %}
+{
+  "name": "Volume Tiers",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Volume discounts"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_savings_message",
+      "label": "Show dynamic savings message",
+      "info": "Shows 'Add X more to save Y%' based on current cart quantity",
+      "default": true
+    }
+  ],
+  "presets": [
+    {
+      "name": "Volume Tiers"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,27 @@
+query Input {
+  cart {
+    lines {
+      id
+      quantity
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          product {
+            volumeConfig: metafield(
+              namespace: "$app:multibundles"
+              key: "volume-config"
+            ) {
+              jsonValue
+            }
+          }
+        }
+      }
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+    }
+  }
+}

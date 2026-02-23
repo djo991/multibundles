@@ -2,17 +2,17 @@ import { useState, useCallback, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigate, useSubmit } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
+import { redirect } from "react-router";
 import { authenticate } from "~/shopify.server";
 import { getOrCreateShop } from "~/models/shop.server";
-import { createBundle } from "~/models/bundle.server";
-import { setComponents } from "~/models/bundle-component.server";
-import { updateComponentPrices } from "~/models/bundle-component.server";
+import { createBundle, getBundleCount, getBundle } from "~/models/bundle.server";
+import { setComponents, updateComponentPrices } from "~/models/bundle-component.server";
 import {
   calculateProportionalPrices,
   calculateBundlePrice,
 } from "~/services/pricing.server";
 import { syncBundleMetafield } from "~/services/metafield-sync.server";
-import { getBundle } from "~/models/bundle.server";
+import { canCreateBundle } from "~/services/plan-gating.server";
 
 interface SelectedProduct {
   id: string;
@@ -44,12 +44,25 @@ interface ComponentEntry {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = await getOrCreateShop(session.shop);
-  return { shopId: shop.id };
+  const bundleCount = await getBundleCount(shop.id);
+  const check = canCreateBundle(shop.activePlan, "fixed", bundleCount);
+  if (!check.allowed) {
+    throw redirect("/app/bundles/new");
+  }
+  return { shopId: shop.id, plan: shop.activePlan };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = await getOrCreateShop(session.shop);
+
+  // Server-side plan gate enforcement
+  const bundleCount = await getBundleCount(shop.id);
+  const check = canCreateBundle(shop.activePlan, "fixed", bundleCount);
+  if (!check.allowed) {
+    return { error: check.reason };
+  }
+
   const formData = await request.formData();
   const data = JSON.parse(formData.get("data") as string);
 

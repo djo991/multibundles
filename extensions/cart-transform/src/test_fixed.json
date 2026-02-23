@@ -1,0 +1,27 @@
+{
+  "presentmentCurrencyRate": "1.0",
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/1",
+        "quantity": 1,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/parent-variant-1",
+          "title": "Default Title",
+          "product": {
+            "bundleConfig": {
+              "jsonValue": "{\"type\":\"fixed\",\"components\":[{\"variantId\":\"gid://shopify/ProductVariant/comp-1\",\"quantity\":1,\"price\":\"15.00\"},{\"variantId\":\"gid://shopify/ProductVariant/comp-2\",\"quantity\":2,\"price\":\"7.50\"}]}"
+            }
+          }
+        },
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "30.00"
+          }
+        },
+        "attribute": null
+      }
+    ]
+  }
+}

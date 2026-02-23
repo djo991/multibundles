@@ -1,0 +1,25 @@
+{
+  "presentmentCurrencyRate": "1.0",
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/4",
+        "quantity": 2,
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/regular-1",
+          "title": "Blue / Large",
+          "product": {
+            "bundleConfig": null
+          }
+        },
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "25.00"
+          }
+        },
+        "attribute": null
+      }
+    ]
+  }
+}

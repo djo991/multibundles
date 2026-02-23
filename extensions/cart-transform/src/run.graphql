@@ -1,0 +1,32 @@
+query Input {
+  presentmentCurrencyRate
+  cart {
+    lines {
+      id
+      quantity
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          title
+          product {
+            bundleConfig: metafield(
+              namespace: "$app:multibundles"
+              key: "bundle-config"
+            ) {
+              jsonValue
+            }
+          }
+        }
+      }
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+      attribute(key: "_multibundles_selections") {
+        value
+      }
+    }
+  }
+}
