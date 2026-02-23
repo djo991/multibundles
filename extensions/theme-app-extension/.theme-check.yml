@@ -5,8 +5,5 @@
 # Shopify-specific filter extensions. Disable UnknownFilter to suppress
 # false positives for these Shopify-specific filters.
 
-IgnoredPatterns: []
-
-checks:
-  UnknownFilter:
-    enabled: false
+UnknownFilter:
+  enabled: false
