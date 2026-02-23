@@ -25,7 +25,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }`,
       {
         variables: {
-          id: \`gid://shopify/InventoryItem/\${inventoryItemId}\`,
+          id: `gid://shopify/InventoryItem/${inventoryItemId}`,
         },
       },
     );
@@ -34,7 +34,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const variantGid = variantJson.data?.inventoryItem?.variant?.id;
 
     if (!variantGid) {
-      console.log(\`No variant found for inventory item \${inventoryItemId}\`);
+      console.log(`No variant found for inventory item ${inventoryItemId}`);
       return new Response();
     }
 

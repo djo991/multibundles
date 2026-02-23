@@ -6,7 +6,7 @@ import { getBundlesByComponentVariant } from "~/models/bundle.server";
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, shop, topic, payload } = await authenticate.webhook(request);
 
-  console.log(\`[webhook] \${topic} for shop \${shop}\`);
+  console.log(`[webhook] ${topic} for shop ${shop}`);
 
   try {
     const order = payload as any;
@@ -16,7 +16,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const variantGids = new Set<string>();
     for (const item of lineItems) {
       if (item.variant_id) {
-        variantGids.add(\`gid://shopify/ProductVariant/\${item.variant_id}\`);
+        variantGids.add(`gid://shopify/ProductVariant/${item.variant_id}`);
       }
     }
 
