@@ -1,0 +1,12 @@
+# MultiBundles Theme App Extension — Theme Check Configuration
+#
+# parse_json and flatten are valid Shopify Liquid filters, but the CLI's
+# theme check tool uses a generic Liquid schema that doesn't include all
+# Shopify-specific filter extensions. Disable UnknownFilter to suppress
+# false positives for these Shopify-specific filters.
+
+IgnoredPatterns: []
+
+checks:
+  UnknownFilter:
+    enabled: false

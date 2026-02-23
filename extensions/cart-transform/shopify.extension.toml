@@ -1,14 +1,17 @@
 api_version = "2025-10"
 
 [[extensions]]
+
+uid = "b1dcf02a-a9b9-ff97-2094-275c500fe588961116d3"
+
 type = "function"
 name = "MultiBundles Cart Transform"
 handle = "multibundles-cart-transform"
 description = "Expands bundle parent products into their component line items at checkout. Handles Fixed, Mix & Match, and Custom bundle types."
 
   [extensions.build]
-  command = "cargo build --release --target wasm32-wasip1"
-  path = "target/wasm32-wasip1/release/cart_transform.wasm"
+  command = "cargo build --release --target wasm32-unknown-unknown"
+  path = "target/wasm32-unknown-unknown/release/cart_transform.wasm"
   watch = ["src/**/*.rs"]
 
   [extensions.ui]

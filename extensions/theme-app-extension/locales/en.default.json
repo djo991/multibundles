@@ -1,0 +1,48 @@
+{
+  "blocks": {
+    "bundle_display": {
+      "name": "Bundle Display",
+      "settings": {
+        "heading": {
+          "label": "Heading",
+          "default": "What's in this bundle"
+        },
+        "layout": {
+          "label": "Layout",
+          "options__grid": {
+            "label": "Grid"
+          },
+          "options__list": {
+            "label": "List"
+          }
+        }
+      }
+    },
+    "bundle_builder": {
+      "name": "Bundle Builder",
+      "settings": {
+        "heading": {
+          "label": "Heading",
+          "default": "Build your bundle"
+        },
+        "add_to_cart_text": {
+          "label": "Add to cart button text",
+          "default": "Add bundle to cart"
+        }
+      }
+    },
+    "volume_tiers": {
+      "name": "Volume Discount Tiers",
+      "settings": {
+        "heading": {
+          "label": "Heading",
+          "default": "Volume Discounts"
+        }
+      }
+    },
+    "cart_upsell": {
+      "name": "Bundle Cart Upsell",
+      "settings": {}
+    }
+  }
+}

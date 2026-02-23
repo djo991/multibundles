@@ -32,7 +32,7 @@
 ### Prerequisites
 
 - [Shopify CLI](https://shopify.dev/docs/apps/tools/cli/getting-started)
-- [Rust + wasm32-wasip1 target](https://www.rust-lang.org/tools/install) (for building functions)
+- [Rust + wasm32-unknown-unknown target](https://www.rust-lang.org/tools/install) (for building functions)
 - Node.js >= 20.19
 
 ### Setup

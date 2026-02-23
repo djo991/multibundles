@@ -57,8 +57,8 @@ shopify app function run --input src/test_volume_no_tier.json
 #### Wasm Binary Size Check
 ```bash
 # After building, verify both binaries are under 256KB
-du -h extensions/cart-transform/target/wasm32-wasip1/release/cart_transform.wasm
-du -h extensions/volume-discount/target/wasm32-wasip1/release/volume_discount.wasm
+du -h extensions/cart-transform/target/wasm32-unknown-unknown/release/cart_transform.wasm
+du -h extensions/volume-discount/target/wasm32-unknown-unknown/release/volume_discount.wasm
 ```
 
 ---

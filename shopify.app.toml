@@ -1,39 +1,44 @@
-# MultiBundles - Shopify Bundler App
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-scopes = "read_products,write_products,read_inventory,write_inventory,read_orders,read_markets,write_markets"
+client_id = "ffc81ee6a57fcc5da25c9e19ea3e03f2"
+name = "multibundle"
+application_url = "https://example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
 
 [webhooks]
-api_version = "2025-10"
+api_version = "2026-04"
 
   [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
   uri = "/webhooks/app/uninstalled"
-  topics = ["app/uninstalled"]
 
   [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
   uri = "/webhooks/app/subscriptions_update"
-  topics = ["app_subscriptions/update"]
 
   [[webhooks.subscriptions]]
-  topics = ["app/scopes_update"]
+  topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
   [[webhooks.subscriptions]]
-  topics = ["orders/create"]
+  topics = [ "orders/create" ]
   uri = "/webhooks/orders/create"
 
   [[webhooks.subscriptions]]
-  topics = ["inventory_levels/update"]
+  topics = [ "inventory_levels/update" ]
   uri = "/webhooks/inventory/update"
 
-  # Mandatory compliance webhooks for public apps
   [[webhooks.subscriptions]]
   uri = "/webhooks/compliance"
-  compliance_topics = ["customers/data_request"]
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/compliance"
-  compliance_topics = ["customers/redact"]
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_inventory,read_markets,read_orders,read_products,write_inventory,write_markets,write_products"
 
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/compliance"
-  compliance_topics = ["shop/redact"]
+[auth]
+redirect_urls = [ "https://example.com/api/auth" ]

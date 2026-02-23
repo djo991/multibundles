@@ -6,6 +6,7 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "cart_transform"
+path = "src/run.rs"
 
 [[bin]]
 name = "function-runner"

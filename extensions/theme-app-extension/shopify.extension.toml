@@ -1,6 +1,9 @@
 api_version = "2025-10"
 
 [[extensions]]
+
+uid = "a9fa67e8-f94c-f93e-02eb-dd121b88d916c46afc01"
+
 type = "theme"
 name = "MultiBundles Theme Extension"
 handle = "multibundles-theme"
