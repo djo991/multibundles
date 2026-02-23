@@ -18,10 +18,8 @@ import {
   setSelectionRules,
 } from "~/models/selectable-pool.server";
 import { setVolumeTiers } from "~/models/volume-tier.server";
-import {
-  calculateProportionalPrices,
-  calculateBundlePrice,
-} from "~/services/pricing.server";
+import { calculateProportionalPrices } from "~/services/pricing.server";
+import { calculateBundlePrice } from "~/utils/pricing";
 import { syncBundleMetafield } from "~/services/metafield-sync.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import type { HeadersFunction } from "react-router";

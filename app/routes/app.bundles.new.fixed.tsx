@@ -7,10 +7,8 @@ import { authenticate } from "~/shopify.server";
 import { getOrCreateShop } from "~/models/shop.server";
 import { createBundle, getBundleCount, getBundle } from "~/models/bundle.server";
 import { setComponents, updateComponentPrices } from "~/models/bundle-component.server";
-import {
-  calculateProportionalPrices,
-  calculateBundlePrice,
-} from "~/services/pricing.server";
+import { calculateProportionalPrices } from "~/services/pricing.server";
+import { calculateBundlePrice } from "~/utils/pricing";
 import { syncBundleMetafield } from "~/services/metafield-sync.server";
 import { canCreateBundle } from "~/services/plan-gating.server";
 

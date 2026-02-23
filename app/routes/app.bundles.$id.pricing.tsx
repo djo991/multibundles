@@ -11,7 +11,7 @@ import {
   removeMarketPriceOverride,
 } from "~/services/market-pricing.server";
 import { canAccessFeature } from "~/services/plan-gating.server";
-import { applyRoundingRule } from "~/services/pricing.server";
+import { applyRoundingRule } from "~/utils/pricing";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import type { HeadersFunction } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
