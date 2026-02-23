@@ -1,34 +1,200 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
-// enough when changing adapters.
-// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
   provider = "sqlite"
   url      = "file:dev.sqlite"
 }
 
+// ─── Session (Shopify Auth) ───────────────────────────────────
+
 model Session {
-  id            String    @id
-  shop          String
-  state         String
-  isOnline      Boolean   @default(false)
-  scope         String?
-  expires       DateTime?
-  accessToken   String
-  userId        BigInt?
-  firstName     String?
-  lastName      String?
-  email         String?
-  accountOwner  Boolean   @default(false)
-  locale        String?
-  collaborator  Boolean?  @default(false)
-  emailVerified Boolean?  @default(false)
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+}
+
+// ─── Shop Settings ────────────────────────────────────────────
+
+model Shop {
+  id              String    @id @default(uuid())
+  shopDomain      String    @unique
+  shopifyGid      String?
+  activePlan      String    @default("free") // "free" | "launch" | "global"
+  subscriptionGid String?
+  trialEndsAt     DateTime?
+  installedAt     DateTime  @default(now())
+  uninstalledAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  bundles Bundle[]
+}
+
+// ─── Bundle ───────────────────────────────────────────────────
+
+model Bundle {
+  id              String  @id @default(uuid())
+  shopId          String
+  shop            Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  // Shopify product references (cached)
+  productGid      String
+  productTitle    String
+  productHandle   String?
+  productImageUrl String?
+
+  // Bundle configuration
+  bundleType      String  @default("fixed") // "fixed" | "mix_and_match" | "volume" | "custom"
+  status          String  @default("draft") // "draft" | "active" | "archived"
+  title           String
+  description     String?
+
+  // Pricing
+  discountType    String  @default("percentage") // "percentage" | "fixed_amount" | "manual_price"
+  discountValue   Float   @default(0)
+  bundlePrice     Float?  // Total selling price (for manual_price type)
+  compareAtPrice  Float?  // Original price for strikethrough display
+
+  // Metafield sync
+  metafieldSynced Boolean  @default(false)
+  lastSyncedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  components      BundleComponent[]
+  selectablePool  SelectablePool[]
+  selectionRules  BundleSelectionRules?
+  volumeTiers     VolumeTier[]
+  marketOverrides MarketPriceOverride[]
+
+  @@unique([shopId, productGid])
+  @@index([shopId, status])
+  @@index([productGid])
+}
+
+// ─── Bundle Component (Fixed child variants) ──────────────────
+
+model BundleComponent {
+  id           String @id @default(uuid())
+  bundleId     String
+  bundle       Bundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  // Shopify variant references (cached)
+  variantGid   String
+  productGid   String
+  variantTitle String
+  productTitle String
+  sku          String?
+  imageUrl     String?
+
+  // Configuration
+  quantity     Int    @default(1)
+  sortOrder    Int    @default(0)
+  isFixed      Boolean @default(true) // true = always included, false = selectable pool item (for custom type)
+
+  // Pricing (computed proportional price)
+  pricePerUnit  Float?
+  originalPrice Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bundleId, variantGid])
+  @@index([bundleId])
+  @@index([variantGid])
+}
+
+// ─── Selectable Pool (Mix-and-match / Custom eligible variants) ─
+
+model SelectablePool {
+  id           String @id @default(uuid())
+  bundleId     String
+  bundle       Bundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  // Shopify variant references (cached)
+  variantGid   String
+  productGid   String
+  variantTitle String
+  productTitle String
+  imageUrl     String?
+
+  // Pricing
+  originalPrice Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bundleId, variantGid])
+  @@index([bundleId])
+}
+
+// ─── Selection Rules (Min/max for mix-and-match / custom) ─────
+
+model BundleSelectionRules {
+  id            String @id @default(uuid())
+  bundleId      String @unique
+  bundle        Bundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  minSelections Int    @default(1)
+  maxSelections Int    @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Volume Tiers (Quantity-based discounts) ──────────────────
+
+model VolumeTier {
+  id            String @id @default(uuid())
+  bundleId      String
+  bundle        Bundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  minQuantity   Int
+  discountType  String @default("percentage") // "percentage" | "fixed_amount"
+  discountValue Float
+  sortOrder     Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bundleId, minQuantity])
+  @@index([bundleId])
+}
+
+// ─── Market Price Override ────────────────────────────────────
+
+model MarketPriceOverride {
+  id           String @id @default(uuid())
+  bundleId     String
+  bundle       Bundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  marketGid    String
+  marketName   String
+  currencyCode String
+
+  fixedPrice   Float
+  roundingRule String? // "0.99" | "0.95" | "0.00"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bundleId, marketGid])
+  @@index([bundleId])
 }
