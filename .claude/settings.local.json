@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__7c1bc06d-f28f-4627-8bc9-47c67fb07243__search_docs",
+      "mcp__4b7f2d26-5cb4-4ce9-918a-94633673c7a5__resolve-library-id",
+      "mcp__4b7f2d26-5cb4-4ce9-918a-94633673c7a5__query-docs",
+      "WebFetch(domain:shopify.dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(node --version:*)",
+      "Bash(npm --version:*)",
+      "Bash(npx shopify:*)",
+      "Bash(rustc:*)",
+      "Bash(cargo --version:*)",
+      "Bash(npm install:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
