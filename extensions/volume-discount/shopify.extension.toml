@@ -9,6 +9,11 @@ name = "MultiBundles Volume Discount"
 handle = "multibundles-volume-discount"
 description = "Applies tiered volume discounts to products based on cart line quantities. Reads discount tiers from the product's volume-config metafield."
 
+  [[extensions.targeting]]
+  target = "purchase.product-discount.run"
+  input_query = "src/run.graphql"
+  export = "run"
+
   [extensions.build]
   command = "cargo build --release --target wasm32-unknown-unknown"
   path = "target/wasm32-unknown-unknown/release/volume_discount.wasm"
