@@ -8,23 +8,25 @@ use serde_json::Value;
 // generates Rust types.  #[query] reads our input selection (src/run.graphql)
 // and generates the concrete query-result types inside `schema::run`.
 //
-// Generated paths:
-//   schema::run::Input                        – root response type
-//   schema::run::input::Merchandise           – union enum (ProductVariant | CustomProduct)
-//   schema::run::input::CartLine              – query-selected CartLine fields
-//   schema::FunctionRunResult                 – output type (struct with fields)
-//   schema::CartOperation                     – @oneOf enum (Expand | Merge | Update)
-//   schema::ExpandOperation                   – expand operation struct
-//   schema::ExpandedItem                      – expanded item struct
-//   schema::ExpandedItemPriceAdjustment       – wrapper struct around adjustment value
-//   schema::ExpandedItemPriceAdjustmentValue  – @oneOf enum (FixedPricePerUnit | …)
-//   schema::ExpandedItemFixedPricePerUnitAdjustment – { amount: Decimal }
+// Generated paths (discovered from compiler output):
+//   schema::run::Input                                – root response type
+//   schema::run::input::cart::lines::Merchandise      – union enum (ProductVariant | …)
+//   schema::FunctionRunResult                         – output type (struct with fields)
+//   schema::CartOperation                             – @oneOf enum (Expand | Merge | Update)
+//   schema::ExpandOperation                           – expand operation struct
+//   schema::ExpandedItem                              – expanded item struct
+//   schema::ExpandedItemPriceAdjustment               – wrapper struct around adjustment value
+//   schema::ExpandedItemPriceAdjustmentValue          – @oneOf enum (FixedPricePerUnit | …)
+//   schema::ExpandedItemFixedPricePerUnitAdjustment   – { amount: Decimal }
 
 #[typegen("./schema.graphql")]
 pub mod schema {
     #[query("./src/run.graphql")]
     pub mod run {}
 }
+
+// Alias for the union type generated inside the query's selection-set path.
+use schema::run::input::cart::lines::Merchandise;
 
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
@@ -34,7 +36,7 @@ fn run(input: schema::run::Input) -> Result<schema::FunctionRunResult> {
 
     for line in input.cart().lines() {
         // Only process ProductVariant merchandise (skip CustomProduct, etc.)
-        let schema::run::input::Merchandise::ProductVariant(variant) = line.merchandise() else {
+        let Merchandise::ProductVariant(variant) = line.merchandise() else {
             continue;
         };
 
@@ -45,7 +47,7 @@ fn run(input: schema::run::Input) -> Result<schema::FunctionRunResult> {
 
         // Cart Transform's Metafield exposes value() as the raw JSON string
         // (the schema does NOT include jsonValue — only value: String!).
-        let config: Value = match serde_json::from_str(metafield.value()) {
+        let config: Value = match serde_json::from_str::<Value>(metafield.value()) {
             Ok(v) => v,
             Err(_) => continue,
         };
@@ -58,6 +60,7 @@ fn run(input: schema::run::Input) -> Result<schema::FunctionRunResult> {
                 let selections = line
                     .attribute()
                     .and_then(|a| a.value())
+                    .map(String::as_str)
                     .unwrap_or("[]");
                 expand_mix_match(line.id(), &config, selections)
             }
@@ -65,6 +68,7 @@ fn run(input: schema::run::Input) -> Result<schema::FunctionRunResult> {
                 let selections = line
                     .attribute()
                     .and_then(|a| a.value())
+                    .map(String::as_str)
                     .unwrap_or("[]");
                 expand_custom(line.id(), &config, selections)
             }
@@ -334,7 +338,7 @@ fn make_expanded_item(
                 },
             ),
         }),
-        attributes: vec![],
+        attributes: Some(vec![]),
     }
 }
 

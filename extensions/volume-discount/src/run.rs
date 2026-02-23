@@ -6,23 +6,26 @@ use shopify_function::Result;
 
 // ─── Type generation from schema + query ─────────────────────────────────────
 //
-// Generated paths:
-//   schema::run::Input                  – root response type
-//   schema::run::input::Merchandise     – union enum (ProductVariant | …)
-//   schema::FunctionRunResult           – { discounts, discountApplicationStrategy }
-//   schema::Discount                    – { message, targets, value }
-//   schema::Target                      – @oneOf enum (ProductVariant | CartLine)
-//   schema::ProductVariantTarget        – { id, quantity }
-//   schema::Value                       – @oneOf enum (Percentage | FixedAmount)
-//   schema::Percentage                  – { value: Decimal }
-//   schema::FixedAmount                 – { amount: Decimal, appliesToEachItem: Option<bool> }
-//   schema::DiscountApplicationStrategy – enum (All | First | Maximum)
+// Generated paths (discovered from compiler output):
+//   schema::run::Input                                  – root response type
+//   schema::run::input::cart::lines::Merchandise        – union enum (ProductVariant | …)
+//   schema::FunctionRunResult                           – { discounts, discountApplicationStrategy }
+//   schema::Discount                                    – { message, targets, value }
+//   schema::Target                                      – @oneOf enum (ProductVariant | CartLine)
+//   schema::ProductVariantTarget                        – { id, quantity }
+//   schema::Value                                       – @oneOf enum (Percentage | FixedAmount)
+//   schema::Percentage                                  – { value: Decimal }
+//   schema::FixedAmount                                 – { amount, appliesToEachItem: Option<bool> }
+//   schema::DiscountApplicationStrategy                 – enum (All | First | Maximum)
 
 #[typegen("./schema.graphql")]
 pub mod schema {
     #[query("./src/run.graphql")]
     pub mod run {}
 }
+
+// Alias for the union type generated inside the query's selection-set path.
+use schema::run::input::cart::lines::Merchandise;
 
 // ─── JsonValue → serde_json::Value conversion ────────────────────────────────
 //
@@ -55,7 +58,7 @@ fn run(input: schema::run::Input) -> Result<schema::FunctionRunResult> {
 
     for line in input.cart().lines() {
         // Only process ProductVariant merchandise
-        let schema::run::input::Merchandise::ProductVariant(variant) = line.merchandise() else {
+        let Merchandise::ProductVariant(variant) = line.merchandise() else {
             continue;
         };
 
@@ -64,12 +67,13 @@ fn run(input: schema::run::Input) -> Result<schema::FunctionRunResult> {
             continue;
         };
 
-        // json_value() returns &JsonValue; convert to serde_json for easy access
-        let config: Json = to_serde(metafield.json_value());
+        // json_value() returns &JsonValue; convert to serde_json for easy access.
+        let jv: &JsonValue = metafield.json_value();
+        let config: Json = to_serde(jv);
 
         // Find the best qualifying tier for the line quantity
         if let Some(discount) =
-            find_best_tier_discount(variant.id(), line.quantity(), &config)
+            find_best_tier_discount(variant.id(), *line.quantity(), &config)
         {
             discounts.push(discount);
         }
