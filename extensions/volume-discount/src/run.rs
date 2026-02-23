@@ -1,68 +1,83 @@
+// Import serde_json::Value under an alias to avoid clashing with the
+// generated schema::Value @oneOf discount-value enum.
+use serde_json::Value as Json;
 use shopify_function::prelude::*;
 use shopify_function::Result;
-use serde_json::Value;
 
-// ─── Types generated from run.graphql + Product Discounts schema ─────────────
+// ─── Type generation from schema + query ─────────────────────────────────────
 //
-// shopify_function_target generates `input` and `output` modules from:
-//   query_path  = "src/run.graphql"
-//   schema_path = "../../node_modules/@shopify/shopify-function-targets/schemas/product_discounts/FunctionRunTarget.graphql"
-//
-// Input types (auto-generated):
-//   input::ResponseData
-//   input::Cart
-//   input::CartLine (id, quantity, merchandise, cost)
-//   input::CartLineMerchandise::ProductVariant (id, product)
-//   input::Product (volume_config: Option<Metafield>)
-//   input::Metafield (json_value: Option<JsonValue>)
-//
-// Output types (auto-generated):
-//   output::FunctionRunResult { discounts: Vec<Discount>, discount_application_strategy }
-//   output::Discount { targets, value, conditions, message }
-//   output::Target::ProductVariant { id, quantity }
-//   output::Value::Percentage { value } | Value::FixedAmount { applies_to_each_item, amount }
-//   output::DiscountApplicationStrategy (First | Maximum)
+// Generated paths:
+//   schema::run::Input                  – root response type
+//   schema::run::input::Merchandise     – union enum (ProductVariant | …)
+//   schema::FunctionRunResult           – { discounts, discountApplicationStrategy }
+//   schema::Discount                    – { message, targets, value }
+//   schema::Target                      – @oneOf enum (ProductVariant | CartLine)
+//   schema::ProductVariantTarget        – { id, quantity }
+//   schema::Value                       – @oneOf enum (Percentage | FixedAmount)
+//   schema::Percentage                  – { value: Decimal }
+//   schema::FixedAmount                 – { amount: Decimal, appliesToEachItem: Option<bool> }
+//   schema::DiscountApplicationStrategy – enum (All | First | Maximum)
 
-#[shopify_function_target(
-    query_path = "src/run.graphql",
-    schema_path = "../../node_modules/@shopify/shopify-function-targets/schemas/product_discounts/FunctionRunTarget.graphql"
-)]
-fn run(input: input::ResponseData) -> Result<output::FunctionRunResult> {
-    let mut discounts: Vec<output::Discount> = vec![];
+#[typegen("./schema.graphql")]
+pub mod schema {
+    #[query("./src/run.graphql")]
+    pub mod run {}
+}
 
-    for line in &input.cart.lines {
+// ─── JsonValue → serde_json::Value conversion ────────────────────────────────
+//
+// The Product Discounts schema returns metafield data as JsonValue
+// (shopify_function's custom JSON scalar type).  Convert it to serde_json::Value
+// for ergonomic field access with `.as_str()`, `.as_f64()`, etc.
+
+fn to_serde(v: &JsonValue) -> Json {
+    match v {
+        JsonValue::Null => Json::Null,
+        JsonValue::String(s) => Json::String(s.clone()),
+        JsonValue::Number(n) => serde_json::Number::from_f64(*n)
+            .map(Json::Number)
+            .unwrap_or(Json::Null),
+        JsonValue::Boolean(b) => Json::Bool(*b),
+        JsonValue::Array(a) => Json::Array(a.iter().map(to_serde).collect()),
+        JsonValue::Object(o) => Json::Object(
+            o.iter()
+                .map(|(k, v)| (k.clone(), to_serde(v)))
+                .collect(),
+        ),
+    }
+}
+
+// ─── Entry point ─────────────────────────────────────────────────────────────
+
+#[shopify_function]
+fn run(input: schema::run::Input) -> Result<schema::FunctionRunResult> {
+    let mut discounts: Vec<schema::Discount> = vec![];
+
+    for line in input.cart().lines() {
         // Only process ProductVariant merchandise
-        let input::CartLineMerchandise::ProductVariant(variant) = &line.merchandise else {
+        let schema::run::input::Merchandise::ProductVariant(variant) = line.merchandise() else {
             continue;
         };
 
         // Only process lines that have a volume-config metafield
-        let Some(metafield) = &variant.product.volume_config else {
+        let Some(metafield) = variant.product().volume_config() else {
             continue;
         };
 
-        let Some(json_value) = &metafield.json_value else {
-            continue;
-        };
-
-        // Parse the volume config JSON
-        let config: Value = match serde_json::from_str(&json_value.to_string()) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
+        // json_value() returns &JsonValue; convert to serde_json for easy access
+        let config: Json = to_serde(metafield.json_value());
 
         // Find the best qualifying tier for the line quantity
         if let Some(discount) =
-            find_best_tier_discount(line, &variant.id, &config)
+            find_best_tier_discount(variant.id(), line.quantity(), &config)
         {
             discounts.push(discount);
         }
     }
 
-    Ok(output::FunctionRunResult {
+    Ok(schema::FunctionRunResult {
         discounts,
-        // Maximum: apply the highest discount when multiple could apply
-        discount_application_strategy: output::DiscountApplicationStrategy::Maximum,
+        discount_application_strategy: schema::DiscountApplicationStrategy::Maximum,
     })
 }
 
@@ -79,15 +94,14 @@ fn run(input: input::ResponseData) -> Result<output::FunctionRunResult> {
 // }
 
 fn find_best_tier_discount(
-    line: &input::CartLine,
     variant_id: &str,
-    config: &Value,
-) -> Option<output::Discount> {
+    line_qty: i32,
+    config: &Json,
+) -> Option<schema::Discount> {
     let tiers = config["tiers"].as_array()?;
-    let line_qty = line.quantity as i64;
+    let line_qty = line_qty as i64;
 
-    // Find all qualifying tiers (where minQuantity <= line_qty)
-    // and pick the one with the highest discount value
+    // Find all qualifying tiers (minQuantity <= line_qty) and pick the best
     let best_tier = tiers
         .iter()
         .filter(|tier| {
@@ -97,7 +111,9 @@ fn find_best_tier_discount(
         .max_by(|a, b| {
             let a_val = a["discountValue"].as_f64().unwrap_or(0.0);
             let b_val = b["discountValue"].as_f64().unwrap_or(0.0);
-            a_val.partial_cmp(&b_val).unwrap_or(std::cmp::Ordering::Equal)
+            a_val
+                .partial_cmp(&b_val)
+                .unwrap_or(std::cmp::Ordering::Equal)
         })?;
 
     let discount_type = best_tier["discountType"].as_str().unwrap_or("");
@@ -108,20 +124,21 @@ fn find_best_tier_discount(
         return None;
     }
 
-    // Build the target: apply to the specific variant in this cart line
-    let targets = vec![output::Target::ProductVariant(output::ProductVariantTarget {
-        id: variant_id.to_string().into(),
-        quantity: None, // Apply to entire line quantity
-    })];
+    // Apply the discount to the specific variant in this cart line
+    let targets = vec![schema::Target::ProductVariant(
+        schema::ProductVariantTarget {
+            id: variant_id.to_owned(),
+            quantity: None, // apply to the whole line quantity
+        },
+    )];
 
-    // Build the discount value
     let value = match discount_type {
-        "percentage" => output::Value::Percentage(output::Percentage {
-            value: format!("{:.4}", discount_value).parse().ok()?,
+        "percentage" => schema::Value::Percentage(schema::Percentage {
+            value: Decimal(discount_value),
         }),
-        "fixed_amount" => output::Value::FixedAmount(output::FixedAmount {
-            amount: format!("{:.2}", discount_value).parse().ok()?,
-            applies_to_each_item: true,
+        "fixed_amount" => schema::Value::FixedAmount(schema::FixedAmount {
+            amount: Decimal(discount_value),
+            applies_to_each_item: Some(true),
         }),
         _ => return None,
     };
@@ -134,13 +151,16 @@ fn find_best_tier_discount(
         } else {
             format!("${:.2}", discount_value)
         },
-        if discount_type == "fixed_amount" { " each" } else { "" }
+        if discount_type == "fixed_amount" {
+            " each"
+        } else {
+            ""
+        }
     );
 
-    Some(output::Discount {
+    Some(schema::Discount {
         targets,
         value,
-        conditions: None,
         message: Some(message),
     })
 }
@@ -169,14 +189,14 @@ mod tests {
 
         // Qty = 4: should match tiers for 2 and 3, best is 15%
         let line_qty: i64 = 4;
-        let qualifying: Vec<&Value> = tiers
+        let qualifying: Vec<&Json> = tiers
             .iter()
             .filter(|t| {
                 let min = t["minQuantity"].as_i64().unwrap_or(i64::MAX);
                 line_qty >= min
             })
             .collect();
-        assert_eq!(qualifying.len(), 2); // 2-tier and 3-tier both qualify
+        assert_eq!(qualifying.len(), 2);
 
         let best = qualifying
             .iter()
@@ -197,7 +217,7 @@ mod tests {
 
         // Qty = 3: does not qualify for the 5+ tier
         let line_qty: i64 = 3;
-        let qualifying: Vec<&Value> = tiers
+        let qualifying: Vec<&Json> = tiers
             .iter()
             .filter(|t| {
                 let min = t["minQuantity"].as_i64().unwrap_or(i64::MAX);

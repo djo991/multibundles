@@ -2,52 +2,50 @@ use shopify_function::prelude::*;
 use shopify_function::Result;
 use serde_json::Value;
 
-// ─── Types generated from run.graphql + Cart Transform schema ────────────────
+// ─── Type generation from schema + query ─────────────────────────────────────
 //
-// shopify_function_target generates `input` and `output` modules from:
-//   query_path  = "src/run.graphql"
-//   schema_path = "../../node_modules/@shopify/shopify-function-targets/schemas/cart_transform/FunctionRunTarget.graphql"
+// #[typegen] reads the full Cart Transform GraphQL schema (schema.graphql) and
+// generates Rust types.  #[query] reads our input selection (src/run.graphql)
+// and generates the concrete query-result types inside `schema::run`.
 //
-// Input types (auto-generated):
-//   input::ResponseData
-//   input::Cart
-//   input::CartLine (id, quantity, merchandise, cost, attribute)
-//   input::CartLineMerchandise::ProductVariant (id, title, product)
-//   input::Product (bundle_config: Option<Metafield>)
-//   input::Metafield (json_value: Option<JsonValue>)
-//   input::CartLineAttribute (value: Option<String>)
-//
-// Output types (auto-generated):
-//   output::FunctionRunResult { operations: Vec<CartOperation> }
-//   output::CartOperation::Expand(ExpandOperation)
-//   output::ExpandOperation { cart_line_id, new_lines, title, image, price }
-//   output::ExpandedItem { merchandise_id, quantity, price }
-//   output::ExpandedItemPrice::FixedPricePerUnit { amount: Decimal }
+// Generated paths:
+//   schema::run::Input                        – root response type
+//   schema::run::input::Merchandise           – union enum (ProductVariant | CustomProduct)
+//   schema::run::input::CartLine              – query-selected CartLine fields
+//   schema::FunctionRunResult                 – output type (struct with fields)
+//   schema::CartOperation                     – @oneOf enum (Expand | Merge | Update)
+//   schema::ExpandOperation                   – expand operation struct
+//   schema::ExpandedItem                      – expanded item struct
+//   schema::ExpandedItemPriceAdjustment       – wrapper struct around adjustment value
+//   schema::ExpandedItemPriceAdjustmentValue  – @oneOf enum (FixedPricePerUnit | …)
+//   schema::ExpandedItemFixedPricePerUnitAdjustment – { amount: Decimal }
 
-#[shopify_function_target(
-    query_path = "src/run.graphql",
-    schema_path = "../../node_modules/@shopify/shopify-function-targets/schemas/cart_transform/FunctionRunTarget.graphql"
-)]
-fn run(input: input::ResponseData) -> Result<output::FunctionRunResult> {
-    let mut operations: Vec<output::CartOperation> = vec![];
+#[typegen("./schema.graphql")]
+pub mod schema {
+    #[query("./src/run.graphql")]
+    pub mod run {}
+}
 
-    for line in &input.cart.lines {
-        // Only process ProductVariant merchandise
-        let input::CartLineMerchandise::ProductVariant(variant) = &line.merchandise else {
+// ─── Entry point ─────────────────────────────────────────────────────────────
+
+#[shopify_function]
+fn run(input: schema::run::Input) -> Result<schema::FunctionRunResult> {
+    let mut operations: Vec<schema::CartOperation> = vec![];
+
+    for line in input.cart().lines() {
+        // Only process ProductVariant merchandise (skip CustomProduct, etc.)
+        let schema::run::input::Merchandise::ProductVariant(variant) = line.merchandise() else {
             continue;
         };
 
         // Only process lines that have a bundle-config metafield
-        let Some(metafield) = &variant.product.bundle_config else {
+        let Some(metafield) = variant.product().bundle_config() else {
             continue;
         };
 
-        let Some(json_value) = &metafield.json_value else {
-            continue;
-        };
-
-        // Parse the bundle config JSON
-        let config: Value = match serde_json::from_str(&json_value.to_string()) {
+        // Cart Transform's Metafield exposes value() as the raw JSON string
+        // (the schema does NOT include jsonValue — only value: String!).
+        let config: Value = match serde_json::from_str(metafield.value()) {
             Ok(v) => v,
             Err(_) => continue,
         };
@@ -55,33 +53,31 @@ fn run(input: input::ResponseData) -> Result<output::FunctionRunResult> {
         let bundle_type = config["type"].as_str().unwrap_or("");
 
         let operation = match bundle_type {
-            "fixed" => expand_fixed(line, &config),
+            "fixed" => expand_fixed(line.id(), &config),
             "mix_and_match" => {
                 let selections = line
-                    .attribute
-                    .as_ref()
-                    .and_then(|a| a.value.as_deref())
+                    .attribute()
+                    .and_then(|a| a.value())
                     .unwrap_or("[]");
-                expand_mix_match(line, &config, selections)
+                expand_mix_match(line.id(), &config, selections)
             }
             "custom" => {
                 let selections = line
-                    .attribute
-                    .as_ref()
-                    .and_then(|a| a.value.as_deref())
+                    .attribute()
+                    .and_then(|a| a.value())
                     .unwrap_or("[]");
-                expand_custom(line, &config, selections)
+                expand_custom(line.id(), &config, selections)
             }
-            // "volume" is handled by the separate Discount Function — skip
+            // "volume" is handled by the separate volume-discount function — skip
             _ => None,
         };
 
         if let Some(op) = operation {
-            operations.push(output::CartOperation::Expand(op));
+            operations.push(schema::CartOperation::Expand(op));
         }
     }
 
-    Ok(output::FunctionRunResult { operations })
+    Ok(schema::FunctionRunResult { operations })
 }
 
 // ─── Fixed Bundle Expansion ───────────────────────────────────────────────────
@@ -95,30 +91,27 @@ fn run(input: input::ResponseData) -> Result<output::FunctionRunResult> {
 //   ]
 // }
 
-fn expand_fixed(
-    line: &input::CartLine,
-    config: &Value,
-) -> Option<output::ExpandOperation> {
+fn expand_fixed(line_id: &str, config: &Value) -> Option<schema::ExpandOperation> {
     let components = config["components"].as_array()?;
     if components.is_empty() {
         return None;
     }
 
-    let new_lines: Vec<output::ExpandedItem> = components
+    let expanded_cart_items: Vec<schema::ExpandedItem> = components
         .iter()
         .filter_map(|c| build_expanded_item(c, "variantId", "quantity", "price"))
         .collect();
 
-    if new_lines.is_empty() {
+    if expanded_cart_items.is_empty() {
         return None;
     }
 
-    Some(output::ExpandOperation {
-        cart_line_id: line.id.clone(),
-        new_lines,
-        title: None,
+    Some(schema::ExpandOperation {
+        cart_line_id: line_id.to_owned(),
+        expanded_cart_items,
         image: None,
         price: None,
+        title: None,
     })
 }
 
@@ -137,83 +130,68 @@ fn expand_fixed(
 // [{"id": "gid://...", "qty": 1}, ...]
 
 fn expand_mix_match(
-    line: &input::CartLine,
+    line_id: &str,
     config: &Value,
     selections_json: &str,
-) -> Option<output::ExpandOperation> {
+) -> Option<schema::ExpandOperation> {
     let pool = config["pool"].as_array()?;
     let min = config["minSelections"].as_i64().unwrap_or(1);
     let max = config["maxSelections"].as_i64().unwrap_or(i64::MAX);
-    let bundle_price_str = config["bundlePrice"].as_str().unwrap_or("0");
-    let bundle_price: f64 = bundle_price_str.parse().unwrap_or(0.0);
+    let bundle_price: f64 = config["bundlePrice"]
+        .as_str()
+        .unwrap_or("0")
+        .parse()
+        .unwrap_or(0.0);
 
-    // Parse customer selections
     let selections: Vec<Value> = serde_json::from_str(selections_json).unwrap_or_default();
 
-    // Count total selected quantity
+    // Count total selected quantity and validate against min/max
     let total_qty: i64 = selections
         .iter()
         .map(|s| s["qty"].as_i64().unwrap_or(1))
         .sum();
 
-    // Validate: total selection count must be within min/max
     if total_qty < min || total_qty > max {
         return None;
     }
 
-    // Build a lookup of pool prices by variant GID
-    let pool_prices: std::collections::HashMap<&str, f64> = pool
+    // Build pool price lookup to validate that selected variants are eligible
+    let pool_ids: std::collections::HashSet<&str> = pool
         .iter()
-        .filter_map(|p| {
-            let id = p["variantId"].as_str()?;
-            let price: f64 = p["price"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
-            Some((id, price))
-        })
+        .filter_map(|p| p["variantId"].as_str())
         .collect();
 
-    // Calculate proportional price per selected unit
     let price_per_unit = if total_qty > 0 {
         bundle_price / total_qty as f64
     } else {
         0.0
     };
 
-    // Build expanded items from customer selections
-    let new_lines: Vec<output::ExpandedItem> = selections
+    let expanded_cart_items: Vec<schema::ExpandedItem> = selections
         .iter()
         .filter_map(|s| {
             let variant_id = s["id"].as_str()?;
             let qty = s["qty"].as_i64().unwrap_or(1) as i32;
 
-            // Validate variant is in the pool
-            if !pool_prices.contains_key(variant_id) {
+            // Validate variant is in the eligible pool
+            if !pool_ids.contains(variant_id) {
                 return None;
             }
 
-            let price_amount = format!("{:.2}", price_per_unit);
-
-            Some(output::ExpandedItem {
-                merchandise_id: variant_id.to_string().into(),
-                quantity: qty,
-                price: Some(output::ExpandedItemPrice::FixedPricePerUnit(
-                    output::FixedPricePerUnit {
-                        amount: price_amount.parse().ok()?,
-                    },
-                )),
-            })
+            Some(make_expanded_item(variant_id, qty, price_per_unit))
         })
         .collect();
 
-    if new_lines.is_empty() {
+    if expanded_cart_items.is_empty() {
         return None;
     }
 
-    Some(output::ExpandOperation {
-        cart_line_id: line.id.clone(),
-        new_lines,
-        title: None,
+    Some(schema::ExpandOperation {
+        cart_line_id: line_id.to_owned(),
+        expanded_cart_items,
         image: None,
         price: None,
+        title: None,
     })
 }
 
@@ -237,22 +215,23 @@ fn expand_mix_match(
 // [{"id": "gid://...", "qty": 1}, ...]
 
 fn expand_custom(
-    line: &input::CartLine,
+    line_id: &str,
     config: &Value,
     selections_json: &str,
-) -> Option<output::ExpandOperation> {
+) -> Option<schema::ExpandOperation> {
     let fixed_components = config["fixedComponents"].as_array()?;
     let selectable = &config["selectablePool"];
-    let pool = selectable["pool"].as_array().unwrap_or(&vec![]);
+    let empty_pool = vec![];
+    let pool = selectable["pool"].as_array().unwrap_or(&empty_pool);
     let min = selectable["minSelections"].as_i64().unwrap_or(0);
     let max = selectable["maxSelections"].as_i64().unwrap_or(i64::MAX);
-    let bundle_price_str = config["bundlePrice"].as_str().unwrap_or("0");
-    let bundle_price: f64 = bundle_price_str.parse().unwrap_or(0.0);
+    let bundle_price: f64 = config["bundlePrice"]
+        .as_str()
+        .unwrap_or("0")
+        .parse()
+        .unwrap_or(0.0);
 
-    // Parse customer selections
     let selections: Vec<Value> = serde_json::from_str(selections_json).unwrap_or_default();
-
-    // Validate selection count
     let total_qty: i64 = selections
         .iter()
         .map(|s| s["qty"].as_i64().unwrap_or(1))
@@ -272,8 +251,8 @@ fn expand_custom(
         })
         .collect();
 
-    // Calculate total original price across fixed + selected
-    let fixed_original: f64 = fixed_components
+    // Compute total original value for proportional price distribution
+    let fixed_total: f64 = fixed_components
         .iter()
         .map(|c| {
             let qty = c["quantity"].as_i64().unwrap_or(1) as f64;
@@ -282,111 +261,98 @@ fn expand_custom(
         })
         .sum();
 
-    let selected_original: f64 = selections
+    let selected_total: f64 = selections
         .iter()
         .map(|s| {
-            let variant_id = s["id"].as_str().unwrap_or("");
+            let id = s["id"].as_str().unwrap_or("");
             let qty = s["qty"].as_i64().unwrap_or(1) as f64;
-            let price = pool_prices.get(variant_id).copied().unwrap_or(0.0);
-            qty * price
+            pool_prices.get(id).copied().unwrap_or(0.0) * qty
         })
         .sum();
 
-    let total_original = fixed_original + selected_original;
+    let total_original = (fixed_total + selected_total).max(0.01);
 
     // Expand fixed components with proportional prices
-    let mut new_lines: Vec<output::ExpandedItem> = fixed_components
+    let mut expanded_cart_items: Vec<schema::ExpandedItem> = fixed_components
         .iter()
         .filter_map(|c| {
             let variant_id = c["variantId"].as_str()?;
             let qty = c["quantity"].as_i64().unwrap_or(1) as i32;
             let original_price: f64 = c["price"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
-
-            // Proportional price: (component_weight / total_weight) * bundle_price
-            let weight = (original_price * qty as f64) / total_original.max(0.01);
-            let component_total = weight * bundle_price;
-            let price_per_unit = component_total / qty as f64;
-            let price_str = format!("{:.2}", price_per_unit);
-
-            Some(output::ExpandedItem {
-                merchandise_id: variant_id.to_string().into(),
-                quantity: qty,
-                price: Some(output::ExpandedItemPrice::FixedPricePerUnit(
-                    output::FixedPricePerUnit {
-                        amount: price_str.parse().ok()?,
-                    },
-                )),
-            })
+            let weight = (original_price * qty as f64) / total_original;
+            let price_per_unit = (weight * bundle_price) / qty as f64;
+            Some(make_expanded_item(variant_id, qty, price_per_unit))
         })
         .collect();
 
     // Expand selected components with proportional prices
-    let selected_lines: Vec<output::ExpandedItem> = selections
+    let selected_items: Vec<schema::ExpandedItem> = selections
         .iter()
         .filter_map(|s| {
             let variant_id = s["id"].as_str()?;
             let qty = s["qty"].as_i64().unwrap_or(1) as i32;
-
-            // Validate selection is in pool
             if !pool_prices.contains_key(variant_id) {
                 return None;
             }
-
             let original_price = pool_prices.get(variant_id).copied().unwrap_or(0.0);
-            let weight = (original_price * qty as f64) / total_original.max(0.01);
-            let component_total = weight * bundle_price;
-            let price_per_unit = component_total / qty as f64;
-            let price_str = format!("{:.2}", price_per_unit);
-
-            Some(output::ExpandedItem {
-                merchandise_id: variant_id.to_string().into(),
-                quantity: qty,
-                price: Some(output::ExpandedItemPrice::FixedPricePerUnit(
-                    output::FixedPricePerUnit {
-                        amount: price_str.parse().ok()?,
-                    },
-                )),
-            })
+            let weight = (original_price * qty as f64) / total_original;
+            let price_per_unit = (weight * bundle_price) / qty as f64;
+            Some(make_expanded_item(variant_id, qty, price_per_unit))
         })
         .collect();
 
-    new_lines.extend(selected_lines);
+    expanded_cart_items.extend(selected_items);
 
-    if new_lines.is_empty() {
+    if expanded_cart_items.is_empty() {
         return None;
     }
 
-    Some(output::ExpandOperation {
-        cart_line_id: line.id.clone(),
-        new_lines,
-        title: None,
+    Some(schema::ExpandOperation {
+        cart_line_id: line_id.to_owned(),
+        expanded_cart_items,
         image: None,
         price: None,
+        title: None,
     })
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/// Build an ExpandedItem from a metafield component JSON object.
+/// Build an ExpandedItem with a FixedPricePerUnit adjustment.
+fn make_expanded_item(
+    variant_id: &str,
+    quantity: i32,
+    price_per_unit: f64,
+) -> schema::ExpandedItem {
+    schema::ExpandedItem {
+        merchandise_id: variant_id.to_owned(),
+        quantity,
+        price: Some(schema::ExpandedItemPriceAdjustment {
+            adjustment: schema::ExpandedItemPriceAdjustmentValue::FixedPricePerUnit(
+                schema::ExpandedItemFixedPricePerUnitAdjustment {
+                    amount: Decimal(price_per_unit),
+                },
+            ),
+        }),
+        attributes: vec![],
+    }
+}
+
+/// Build an ExpandedItem from a component JSON object (used for fixed bundles).
 fn build_expanded_item(
     component: &Value,
     id_key: &str,
     qty_key: &str,
     price_key: &str,
-) -> Option<output::ExpandedItem> {
+) -> Option<schema::ExpandedItem> {
     let variant_id = component[id_key].as_str()?;
     let quantity = component[qty_key].as_i64().unwrap_or(1) as i32;
-    let price_str = component[price_key].as_str().unwrap_or("0");
-
-    Some(output::ExpandedItem {
-        merchandise_id: variant_id.to_string().into(),
-        quantity,
-        price: Some(output::ExpandedItemPrice::FixedPricePerUnit(
-            output::FixedPricePerUnit {
-                amount: price_str.parse().ok()?,
-            },
-        )),
-    })
+    let price: f64 = component[price_key]
+        .as_str()
+        .unwrap_or("0")
+        .parse()
+        .unwrap_or(0.0);
+    Some(make_expanded_item(variant_id, quantity, price))
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -399,8 +365,6 @@ mod tests {
     #[test]
     fn test_expand_fixed_no_components() {
         let config = json!({ "type": "fixed", "components": [] });
-        // Can't call expand_fixed directly without a real CartLine,
-        // but we can test the helper logic:
         let components = config["components"].as_array().unwrap();
         assert!(components.is_empty());
     }
@@ -427,7 +391,6 @@ mod tests {
 
     #[test]
     fn test_mix_match_selection_validation() {
-        // Test that total_qty < min returns None
         let config = json!({
             "type": "mix_and_match",
             "minSelections": 3,
@@ -438,11 +401,9 @@ mod tests {
             ],
             "bundlePrice": "12.00"
         });
-        let pool = config["pool"].as_array().unwrap();
         let min = config["minSelections"].as_i64().unwrap_or(1);
-        let max = config["maxSelections"].as_i64().unwrap_or(i64::MAX);
 
-        // Only 2 selected, need 3
+        // Only 2 selected, need 3 — should fail validation
         let selections = json!([
             {"id": "gid://shopify/ProductVariant/1", "qty": 1},
             {"id": "gid://shopify/ProductVariant/2", "qty": 1}
@@ -454,7 +415,7 @@ mod tests {
             .map(|s| s["qty"].as_i64().unwrap_or(1))
             .sum();
 
-        assert!(total_qty < min); // Should fail validation
+        assert!(total_qty < min);
     }
 
     #[test]
@@ -474,14 +435,19 @@ mod tests {
             .collect();
 
         assert_eq!(
-            pool_prices.get("gid://shopify/ProductVariant/1").copied(),
+            pool_prices
+                .get("gid://shopify/ProductVariant/1")
+                .copied(),
             Some(5.0)
         );
         assert_eq!(
-            pool_prices.get("gid://shopify/ProductVariant/2").copied(),
+            pool_prices
+                .get("gid://shopify/ProductVariant/2")
+                .copied(),
             Some(7.5)
         );
-        // Unknown variant not in pool
-        assert!(pool_prices.get("gid://shopify/ProductVariant/999").is_none());
+        assert!(pool_prices
+            .get("gid://shopify/ProductVariant/999")
+            .is_none());
     }
 }

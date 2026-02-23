@@ -1,6 +1,11 @@
-/// Local test runner — reads JSON from stdin and writes result to stdout.
-/// Used with `shopify app function run` during development.
+/// Local development entry point — not used directly; the Shopify CLI
+/// runs the compiled Wasm binary instead.
+///
+/// To test this function locally:
+///   shopify app function run --input src/test_volume.json
 fn main() {
-    volume_discount::function(std::io::stdin(), std::io::stdout())
-        .expect("function to not fail");
+    eprintln!(
+        "Use `shopify app function run --input <fixture.json>` for local testing.\n\
+         Compile to Wasm with `cargo build --release --target wasm32-unknown-unknown`."
+    );
 }

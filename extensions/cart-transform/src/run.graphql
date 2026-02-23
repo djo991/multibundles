@@ -1,5 +1,4 @@
 query Input {
-  presentmentCurrencyRate
   cart {
     lines {
       id
@@ -14,7 +13,7 @@ query Input {
               namespace: "$app:multibundles"
               key: "bundle-config"
             ) {
-              jsonValue
+              value
             }
           }
         }
