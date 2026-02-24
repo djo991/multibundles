@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useSubmit } from "react-router";
+import { useLoaderData, useSubmit, useActionData, useNavigate } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { redirect } from "react-router";
 import { authenticate } from "~/shopify.server";
@@ -74,8 +74,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function NewMixMatchBundle() {
+  const actionData = useActionData<typeof action>();
   const shopify = useAppBridge();
   const submit = useSubmit();
+  const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -85,6 +87,17 @@ export default function NewMixMatchBundle() {
   const [maxSelections, setMaxSelections] = useState(3);
   const [bundlePrice, setBundlePrice] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!actionData) return;
+    if ("success" in actionData && actionData.success && "bundleId" in actionData) {
+      shopify.toast.show("Bundle created!");
+      navigate(`/app/bundles/${actionData.bundleId}`);
+    } else if ("error" in actionData && actionData.error) {
+      shopify.toast.show(String(actionData.error), { isError: true });
+      setSaving(false);
+    }
+  }, [actionData]);
 
   const selectParentProduct = useCallback(async () => {
     const selected = await shopify.resourcePicker({

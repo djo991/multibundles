@@ -53,7 +53,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing, session } = await authenticate.admin(request);
+  const { billing } = await authenticate.admin(request);
   const formData = await request.formData();
   const planName = formData.get("plan") as string;
 
@@ -61,13 +61,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { error: "Invalid plan" };
   }
 
-  // billing.request() redirects merchant to Shopify approval page.
+  // billing.request() redirects the merchant to the Shopify billing approval
+  // page. The library derives the return URL automatically from the session.
   // Plan update in DB is handled by APP_SUBSCRIPTIONS_UPDATE webhook
   // + the loader sync above when they return to this page.
   await billing.request({
     plan: planName,
     isTest: process.env.NODE_ENV !== "production",
-    returnUrl: `${process.env.SHOPIFY_APP_URL}/app/billing?shop=${session.shop}`,
   });
 
   // billing.request() always redirects - this line is unreachable

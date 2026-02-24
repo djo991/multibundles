@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useNavigate, useSubmit } from "react-router";
+import { useLoaderData, useNavigate, useSubmit, useActionData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { redirect } from "react-router";
 import { authenticate } from "~/shopify.server";
@@ -118,6 +118,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function NewFixedBundle() {
   const { shopId } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const shopify = useAppBridge();
   const submit = useSubmit();
   const navigate = useNavigate();
@@ -132,6 +133,18 @@ export default function NewFixedBundle() {
   const [discountType, setDiscountType] = useState("percentage");
   const [discountValue, setDiscountValue] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  // Navigate to the new bundle after successful save, or show error
+  useEffect(() => {
+    if (!actionData) return;
+    if ("success" in actionData && actionData.success && "bundleId" in actionData) {
+      shopify.toast.show("Bundle created!");
+      navigate(`/app/bundles/${actionData.bundleId}`);
+    } else if ("error" in actionData && actionData.error) {
+      shopify.toast.show(String(actionData.error), { isError: true });
+      setSaving(false);
+    }
+  }, [actionData]);
 
   // Computed values
   const totalOriginalPrice = components.reduce(

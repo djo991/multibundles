@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useNavigate, useSubmit, redirect } from "react-router";
+import { useLoaderData, useNavigate, useSubmit, useActionData, redirect } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "~/shopify.server";
 import { getOrCreateShop } from "~/models/shop.server";
@@ -206,6 +206,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 
 export default function EditBundle() {
   const { bundle } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const shopify = useAppBridge();
   const submit = useSubmit();
   const navigate = useNavigate();
@@ -214,6 +215,17 @@ export default function EditBundle() {
   const [title, setTitle] = useState(bundle.title);
   const [description, setDescription] = useState(bundle.description || "");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!actionData) return;
+    if ("success" in actionData && actionData.success) {
+      shopify.toast.show("Bundle saved!");
+      setSaving(false);
+    } else if ("error" in actionData && actionData.error) {
+      shopify.toast.show(String(actionData.error), { isError: true });
+      setSaving(false);
+    }
+  }, [actionData]);
 
   // Fixed bundle state
   const [components, setComponentsState] = useState<ComponentEntry[]>(
