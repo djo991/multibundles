@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useSubmit } from "react-router";
-import { authenticate, PLANS } from "~/shopify.server";
+import { authenticate } from "~/shopify.server";
+import { PLANS } from "~/utils/plans";
 import { getOrCreateShop, updateShopPlan } from "~/models/shop.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import type { HeadersFunction } from "react-router";
